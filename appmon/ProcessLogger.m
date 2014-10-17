@@ -11,6 +11,11 @@
 #include <net/if.h>
 #include <mach/mach_time.h>
 
+#import <sys/sysctl.h>
+#import <dlfcn.h>
+
+#define SBSERVPATH "/System/Library/PrivateFrameworks/SpringBoardServices.framework/SpringBoardServices"
+
 @interface ProcessLogger ()
 @property(nonatomic, strong) NSString* server_url;
 @property(nonatomic, assign) int logInterval;
@@ -75,8 +80,45 @@
     return self;
 }
 
+-(mach_port_t *) getSpringBoardPort{
+    mach_port_t *port;
+    void *lib = dlopen(SBSERVPATH, RTLD_LAZY);
+    int (*SBSSpringBoardServerPort)() =
+    dlsym(lib, "SBSSpringBoardServerPort");
+    port = (mach_port_t *)SBSSpringBoardServerPort();
+    dlclose(lib);
+    return port;
+}
+
+-(NSString *) foregroundapp{
+   
+    mach_port_t * port = [self getSpringBoardPort];
+    // open springboard lib
+    void *lib = dlopen(SBSERVPATH, RTLD_LAZY);
+    
+    // retrieve function SBFrontmostApplicationDisplayIdentifier
+    void *(*SBFrontmostApplicationDisplayIdentifier)(mach_port_t *port, char *result) =
+    dlsym(lib, "SBFrontmostApplicationDisplayIdentifier");
+    
+    // reserve memory for name
+    char appId[256];
+    memset(appId, 0, sizeof(appId));
+    
+    // retrieve front app name
+    SBFrontmostApplicationDisplayIdentifier(port, appId);
+    
+    // close dynlib
+    dlclose(lib);
+    
+    NSArray* components = [[NSString stringWithCString:appId encoding:NSUTF8StringEncoding] componentsSeparatedByString:@"."];
+    return [components lastObject];
+}
 
 -(NSArray *) processes{
+   
+    NSString *foregroundapp = [self foregroundapp];
+    long now = [[NSNumber numberWithDouble:[[NSDate date] timeIntervalSince1970]]longValue];
+   
     int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0};
     size_t miblen = 4;
     
@@ -116,11 +158,14 @@
                 
                 for (int i = nprocess - 1; i >= 0; i--){
                     
+                   
                     NSString *name = [[NSString alloc] initWithFormat:@"%s", process[i].kp_proc.p_comm];
+                    
+                    int fflag = [name isEqualToString:foregroundapp] ? 1: 0;
                     
                     NSNumber *starttime = [NSNumber numberWithLong: process[i].kp_proc.p_un.__p_starttime.tv_sec];
                     
-                    NSDictionary* dict = [[NSDictionary alloc] initWithObjects:@[name, starttime] forKeys:@[@"name", @"starttime"]];
+                    NSDictionary* dict = [[NSDictionary alloc] initWithObjects:@[[NSNumber numberWithLong:now], name, starttime, [NSNumber numberWithInt:fflag]] forKeys:@[@"ts", @"name", @"starttime", @"foreground"]];
                    
                     [array addObject:dict];
                 }
@@ -161,6 +206,8 @@
 
 - (NSArray *)counters
 {
+    long now = [[NSNumber numberWithDouble:[[NSDate date] timeIntervalSince1970]]longValue];
+    
     BOOL   success;
     struct ifaddrs *addrs;
     const struct ifaddrs *cursor;
@@ -203,7 +250,7 @@
     
     const int kMB = 1024*1024;
     
-    return [NSArray arrayWithObjects:[NSNumber numberWithLong:WiFiSent / kMB], [NSNumber numberWithLong:WiFiReceived/kMB],[NSNumber numberWithLong:WWANSent/kMB],[NSNumber numberWithLong:WWANReceived/kMB], nil];
+    return [NSArray arrayWithObjects: [NSNumber numberWithLong:now], [NSNumber numberWithLong:WiFiSent / kMB], [NSNumber numberWithLong:WiFiReceived/kMB],[NSNumber numberWithLong:WWANSent/kMB],[NSNumber numberWithLong:WWANReceived/kMB], nil];
 }
 
 -(NSDictionary *) sample{
@@ -216,24 +263,25 @@
         NSLog(@"attempting to log to server!");
         [self logToServer];
     }
-    //else if ((now - self.lastSnapshot) > self.sampleInterval){
+    else if ((now - self.lastSnapshot) > self.sampleInterval){
         NSLog(@"writing a snapshot to file!");
         [self snapshot:datadict];
-    //}
+    }
     return datadict;
 }
 
 -(NSDictionary *) collectData{
     
+    NSNumber* ts = [NSNumber numberWithDouble:[[NSDate date] timeIntervalSince1970]];
     NSArray *myprocesses    = [self processes];
     NSArray *counters   = [[ProcessLogger logger] counters];
     
-    NSDictionary *network   = [NSDictionary dictionaryWithObjects:@[counters[0], counters[1], counters[2], counters[3]] forKeys:@[@"wifiup", @"wifidown", @"cellup", @"celldown"]];
+    NSDictionary *network   = [NSDictionary dictionaryWithObjects:@[counters[0], counters[1], counters[2], counters[3], counters[4]] forKeys:@[@"ts", @"wifiup", @"wifidown", @"cellup", @"celldown"]];
     
     NSString* uptime        = [Util tsToString:[[ProcessLogger logger] uptime]];
     NSString* battery       = [NSString stringWithFormat:@"%.f", (float)[[UIDevice currentDevice] batteryLevel]];
     
-    NSDictionary *datadict = [NSDictionary dictionaryWithObjects:@[myprocesses,network,uptime,battery] forKeys:@[@"processes", @"network", @"uptime", @"battery"]];
+    NSDictionary *datadict = [NSDictionary dictionaryWithObjects:@[ts,myprocesses,network,uptime,battery] forKeys:@[@"ts", @"processes", @"network", @"uptime", @"battery"]];
     
     return datadict;
 }
@@ -267,31 +315,28 @@
     
     NSString *fileName = [NSString stringWithFormat:@"%@/samples.json", [self documentsDirectory]];
     
-    NSLog(@"opening file!");
+   
     NSString *content = [NSString stringWithContentsOfFile:fileName encoding:NSUTF8StringEncoding error:nil];
     
-    NSLog(@"got content");
+   
     NSDictionary *samples = nil;
     NSError *error = nil;
     
     if (content == nil){
-        NSLog(@"NO CONTENT TO SEND!!");
         samples = [self collectData];
     }else{
-        NSLog(@"about to replace chars");
+       
         content = [content stringByReplacingOccurrencesOfString:@"\n" withString:@","];
        
         NSString *jsoncontent = [NSString stringWithFormat:@"[%@]",content];
-         NSLog(@"turning to json");
+        
         samples = [NSJSONSerialization JSONObjectWithData:[jsoncontent dataUsingEncoding:NSUTF8StringEncoding] options: NSJSONReadingMutableContainers error:&error];
-        NSLog(@"done!");
+       
     }
     
-    NSLog(@"turning json to NSData!");
+   
     NSData *processes = [NSJSONSerialization dataWithJSONObject:samples options:0 error:&error];
-    NSLog(@"done! %@", error);
-    
-    NSLog(@"creating request!");
+   
     //NSLog(@"%@", error);
     
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc]init];
@@ -302,7 +347,7 @@
     [request setHTTPBody:processes];
     
     NSHTTPURLResponse* urlResponse = nil;
-    NSLog(@"sending request!");
+  
     NSData *response = [NSURLConnection sendSynchronousRequest:request returningResponse: &urlResponse error:&error];
     
     if (response != nil){
@@ -344,19 +389,18 @@
     content = [NSString stringWithFormat:@"%@\n",content];
     NSString *fileName = [NSString stringWithFormat:@"%@/samples.json", [self documentsDirectory]];
     
-    NSLog(@"file name is %@", fileName);
     
     NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:fileName];
     if (fh){
         [fh seekToEndOfFile];
         [fh writeData:[content dataUsingEncoding:NSUTF8StringEncoding]];
         [fh closeFile];
-        NSLog(@"appended data to file!");
+       
     }
     else{
         NSError *error = nil;
         [content writeToFile:fileName atomically:NO encoding:NSUTF8StringEncoding error:&error];
-        NSLog(@"created new file!");
+      
     }
 }
 

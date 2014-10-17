@@ -29,7 +29,7 @@
 {
     [super viewDidLoad];
     [self monitorSystem:nil];
-    [NSTimer scheduledTimerWithTimeInterval:1.0f target:self selector:@selector(monitorSystem:) userInfo:nil repeats:YES];
+    [NSTimer scheduledTimerWithTimeInterval:5.0f target:self selector:@selector(monitorSystem:) userInfo:nil repeats:YES];
     
 	// Do any additional setup after loading the view.
 }

@@ -16,7 +16,7 @@
 			<key>AutocorrectionType</key>
 			<string>No</string>
 			<key>DefaultValue</key>
-			<string>http://128.243.22.221:5000/log</string>
+			<string>https://horizab4.memset.net/ios/log</string>
 			<key>IsSecure</key>
 			<false/>
 			<key>Key</key>
@@ -32,7 +32,7 @@
 			<key>Type</key>
 			<string>PSTextFieldSpecifier</string>
 			<key>DefaultValue</key>
-			<string>1</string>
+			<string>4</string>
 			<key>Title</key>
 			<string>logging interval (hours)</string>
 			<key>Key</key>
@@ -50,7 +50,7 @@
 			<key>Key</key>
 			<string>sampling_interval</string>
 			<key>DefaultValue</key>
-			<string>20</string>
+			<string>30</string>
 		</dict>
 		<dict>
 			<key>Type</key>
