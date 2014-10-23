@@ -9,9 +9,10 @@
 #import <UIKit/UIKit.h>
 #import "ProcessLogger.h"
 #import "ProcessViewController.h"
+#import "SettingsViewController.h"
 #import "Util.h"
-
-@interface RootInfoViewController : UIViewController
+#import "SettingsDelegate.h"
+@interface RootInfoViewController : UIViewController<SettingsDelegate>
 - (IBAction)logToServer:(id)sender;
 
 @property (weak, nonatomic) ProcessViewController *processViewController;
@@ -22,5 +23,5 @@
 @property (weak, nonatomic) IBOutlet UILabel *cellUpLabel;
 @property (weak, nonatomic) IBOutlet UILabel *cellDownLabel;
 @property (weak, nonatomic) IBOutlet UILabel *pausedLabel;
-
+@property (assign,nonatomic) int loggingError;
 @end

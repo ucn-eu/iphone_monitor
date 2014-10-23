@@ -5,6 +5,21 @@
 	<key>PreferenceSpecifiers</key>
 	<array>
 		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>country</string>
+			<key>Key</key>
+			<string>country</string>
+			<key>DefaultValue</key>
+			<string>uk</string>
+			<key>Values</key>
+			<array>
+				<string>uk</string>
+				<string>france</string>
+			</array>
+		</dict>
+		<dict>
 			<key>Title</key>
 			<string>Logging</string>
 			<key>Type</key>
@@ -20,13 +35,29 @@
 			<key>IsSecure</key>
 			<false/>
 			<key>Key</key>
-			<string>server_url</string>
+			<string>uk_server_url</string>
 			<key>KeyboardType</key>
 			<string>URL</string>
 			<key>Title</key>
-			<string>server url</string>
+			<string>uk server</string>
 			<key>Type</key>
 			<string>PSTextFieldSpecifier</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSTextFieldSpecifier</string>
+			<key>AutocapitalizationType</key>
+			<string>None</string>
+			<key>AutocorrectionType</key>
+			<string>No</string>
+			<key>Title</key>
+			<string>french server url</string>
+			<key>DefaultValue</key>
+			<string>https://cmon.lip6.fr/ios/log</string>
+			<key>Key</key>
+			<string>fr_server_url</string>
+			<key>KeyboardType</key>
+			<string>URL</string>
 		</dict>
 		<dict>
 			<key>Type</key>

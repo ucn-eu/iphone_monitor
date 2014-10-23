@@ -13,4 +13,5 @@
 
 @interface ProcessViewController : UITableViewController
 @property(nonatomic, strong) NSArray *processes;
+
 @end

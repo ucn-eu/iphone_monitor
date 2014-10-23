@@ -18,16 +18,15 @@
 
     [self registerDefaultsFromSettingsBundle];
 
-    NSString *server_url = [[NSUserDefaults standardUserDefaults] stringForKey:@"server_url"];
+  
     
     float logging_interval = [[NSUserDefaults standardUserDefaults] floatForKey:@"logging_interval"];
   
     float sampling_interval = [[NSUserDefaults standardUserDefaults] floatForKey:@"sampling_interval"];
 
-    [[ProcessLogger logger] initWithURL:server_url logInterval:logging_interval sampleInterval:sampling_interval];
+    [[ProcessLogger logger] initWithSettings:logging_interval sampleInterval:sampling_interval];
     
-    NSLog(@"server url %@", server_url);
-    NSLog(@"logging interval %f", logging_interval);
+   
     return YES;
 }
 

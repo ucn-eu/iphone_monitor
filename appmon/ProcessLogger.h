@@ -15,7 +15,7 @@
 
 -(void) logToServer;
 -(NSDictionary *) sample;
--(id) initWithURL:(NSString*) url logInterval: (float) interval sampleInterval: (float) sampleInterval;
+-(id) initWithSettings: (float) interval sampleInterval: (float) sampleInterval;
 
 @property(nonatomic, assign) long lastLog;
 @property(nonatomic, assign) long lastSnapshot;

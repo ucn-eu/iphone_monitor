@@ -17,7 +17,6 @@
 #define SBSERVPATH "/System/Library/PrivateFrameworks/SpringBoardServices.framework/SpringBoardServices"
 
 @interface ProcessLogger ()
-@property(nonatomic, strong) NSString* server_url;
 @property(nonatomic, assign) int logInterval;
 @property(nonatomic, assign) int sampleInterval;
 
@@ -39,10 +38,9 @@
     return logger;
 }
 
--(id) initWithURL:(NSString*) url logInterval: (float) logInterval sampleInterval:(float) sampleInterval{
+-(id) initWithSettings: (float) logInterval sampleInterval:(float) sampleInterval{
     
     self = [super init];
-    self.server_url = url;
     self.logInterval = (int) (logInterval * 60.0 * 60.0);  //convert from hours to sec
     self.sampleInterval = (int) (sampleInterval * 60.0);   //convert from min to sec
     
@@ -337,11 +335,15 @@
    
     NSData *processes = [NSJSONSerialization dataWithJSONObject:samples options:0 error:&error];
    
-    //NSLog(@"%@", error);
+    //get the latest server url, incase has changed!!
+    
     
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc]init];
     [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-    [request setURL:[NSURL URLWithString:self.server_url]];
+    
+    
+    [request setURL:[NSURL URLWithString: [self serverurl]]];
+    
     [request setHTTPMethod:@"POST"];
     [request setValue:[NSString stringWithFormat:@"%d", [processes length]] forHTTPHeaderField:@"Content-Length"];
     [request setHTTPBody:processes];
@@ -359,13 +361,49 @@
             
             NSString *result = [[NSString alloc] initWithData:response encoding:NSUTF8StringEncoding];
             
-            //[[NSNotificationCenter defaultCenter] postNotificationName:@"logged" object:nil];
-            [self deleteLocalLogs];
+            NSError* e;
+           
+            if (result){
+                NSDictionary *json = [NSJSONSerialization JSONObjectWithData: [result dataUsingEncoding:NSUTF8StringEncoding] options: NSJSONReadingMutableContainers error: &e];
+                
+                if (!e){
+                    
+                    NSString* success = [json objectForKey:@"success"];
+                    if ([success isEqualToString:@"True"]){
+                        NSDictionary* userInfo = @{@"result": @"success"};
+                        
+                        NSNotificationCenter* nc = [NSNotificationCenter defaultCenter];
+                        [nc postNotificationName:@"logged" object:self userInfo:userInfo];
+                        [self deleteLocalLogs];
+                        
+                    }
+                }else{
+                    NSLog(@"error saving logs!");
+                    NSDictionary* userInfo = @{@"result": @"error"};
+                    NSNotificationCenter* nc = [NSNotificationCenter defaultCenter];
+                    [nc postNotificationName:@"logged" object:self userInfo:userInfo];
+                }
+            
+            }
+            
+            
             NSLog(@"%@", result);
         }
     }
 }
 
+-(NSString*) serverurl{
+    NSString *country = [[NSUserDefaults standardUserDefaults] stringForKey:@"country"];
+    
+    if ([country isEqualToString:@"uk"]){
+        return [[NSUserDefaults standardUserDefaults] stringForKey:@"uk_server_url"];
+    }
+    else{
+       return[[NSUserDefaults standardUserDefaults] stringForKey:@"fr_server_url"];
+    }
+    
+   
+}
 -(void) deleteLocalLogs{
     NSString *fileName = [NSString stringWithFormat:@"%@/samples.json", [self documentsDirectory]];
     
